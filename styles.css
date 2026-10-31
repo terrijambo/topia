@@ -35,8 +35,10 @@ svg { width: 1em; height: 1em; }
   width: 106%; height: 106%;
   object-fit: cover;
   filter: blur(6px) saturate(1.05);
-  transition: filter 1s var(--ease), transform 1.2s var(--ease);
+  opacity: 0;
+  transition: filter 1s var(--ease), transform 1.2s var(--ease), opacity 1.2s ease;
 }
+.bg video.active { opacity: 1; }
 .bg-shade {
   position: absolute; inset: 0;
   background:

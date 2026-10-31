@@ -1,5 +1,4 @@
 const $ = (id) => document.getElementById(id);
-const video = $("bg-video");
 const bg = document.querySelector(".bg");
 const soundBtn = $("sound");
 const audio = $("audio");
@@ -9,34 +8,85 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, "");
 const icon = (name) => `<svg><use href="#i-${name}"/></svg>`;
 
-/* ---------- background video: portrait cut on tall screens ---------- */
+/* ---------- background videos: full clips back to back, crossfaded ---------- */
+const CLIPS = ["patience", "creatine", "alarm"];
+const FADE_S = 1.2;
 const portrait = matchMedia("(max-aspect-ratio: 1/1)");
-function pickVideo() {
-  const name = portrait.matches ? "hero-portrait" : "hero";
-  if (video.dataset.name === name) return;
-  const t = video.currentTime || 0;
-  video.dataset.name = name;
-  video.poster = `/assets/${name === "hero" ? "hero-poster" : "hero-poster-portrait"}.jpg`;
-  video.src = `/assets/${name}.mp4`;
-  video.currentTime = t;
-  video.play().catch(() => {});
+const [vidA, vidB] = bg.querySelectorAll("video");
+let active = vidA;
+let clip = 0;
+let soundOn = false;
+let switching = false;
+
+const standby = () => (active === vidA ? vidB : vidA);
+const clipSrc = (i) => `/assets/videos/${CLIPS[i % CLIPS.length]}${portrait.matches ? "-portrait" : ""}`;
+
+function load(el, i, t = 0) {
+  el.preload = el === active ? "auto" : "none";
+  el.poster = `${clipSrc(i)}.jpg`;
+  el.src = `${clipSrc(i)}.mp4`;
+  if (t) el.addEventListener("loadedmetadata", () => (el.currentTime = t), { once: true });
 }
-pickVideo();
-portrait.addEventListener("change", pickVideo);
+
+function crossfade() {
+  switching = true;
+  const prev = active;
+  active = standby();
+  clip = (clip + 1) % CLIPS.length;
+  active.muted = !soundOn;
+  active.play().catch(() => {});
+  active.classList.add("active");
+  prev.classList.remove("active");
+  setTimeout(() => {
+    prev.pause();
+    load(prev, clip + 1); // queue the following clip
+    switching = false;
+  }, FADE_S * 1000);
+}
+
+for (const el of [vidA, vidB]) {
+  el.addEventListener("timeupdate", () => {
+    if (el !== active || switching) return;
+    // Start buffering the next clip once this one is underway, so they don't fight for bandwidth at load.
+    const next = standby();
+    if (el.currentTime > 8 && next.preload !== "auto") {
+      next.preload = "auto";
+      next.load();
+    }
+    if (el.duration && el.duration - el.currentTime < FADE_S) crossfade();
+  });
+  el.addEventListener("ended", () => el === active && !switching && crossfade());
+}
+
+load(vidA, 0);
+load(vidB, 1);
+vidA.play().catch(() => {});
+
+// Browsers pause muted background video in hidden tabs; pick it back up on return.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && active.paused) active.play().catch(() => {});
+});
+
+portrait.addEventListener("change", () => {
+  load(active, clip, active.currentTime);
+  active.play().catch(() => {});
+  load(standby(), clip + 1);
+});
 
 /* ---------- immersive sound mode ---------- */
 function setImmersive(on) {
   document.body.classList.toggle("immersive", on);
-  video.muted = !on;
+  soundOn = on;
+  active.muted = !on;
   if (on) {
     audio.pause();
-    video.play().catch(() => {});
+    active.play().catch(() => {});
   }
   soundBtn.setAttribute("aria-pressed", String(on));
   soundBtn.setAttribute("aria-label", on ? "Mute and show the site" : "Unmute background video");
   soundBtn.classList.add("compact");
 }
-soundBtn.addEventListener("click", () => setImmersive(video.muted));
+soundBtn.addEventListener("click", () => setImmersive(!soundOn));
 bg.addEventListener("click", () => document.body.classList.contains("immersive") && setImmersive(false));
 addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
@@ -80,7 +130,6 @@ function playAt(i) {
   qi = i;
   const t = queue[i];
   if (document.body.classList.contains("immersive")) setImmersive(false);
-  video.muted = true;
   audio.src = t.preview;
   audio.play().catch(() => {});
   $("p-art").src = t.art;

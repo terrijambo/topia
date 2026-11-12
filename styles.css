@@ -174,19 +174,18 @@ body.immersive .bg { z-index: 2; cursor: pointer; }
   backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
   transition: transform .3s var(--ease), background .2s ease, border-color .2s ease;
 }
-.press-rank {
-  position: relative; overflow: hidden;
-  display: flex; flex-direction: column; justify-content: flex-end;
-  aspect-ratio: 1; border-radius: 12px; margin-bottom: 6px; padding: 12px 14px;
-  background: #151517; box-shadow: 0 10px 26px rgba(0,0,0,.35);
-  isolation: isolate;
+/* Year-end ranking cards: a photo with the rank set over its lower corner. */
+.press-photo { position: relative; display: block; }
+.press-photo::after {
+  content: ""; position: absolute; inset: 0 0 6px; border-radius: 12px;
+  background: linear-gradient(180deg, transparent 45%, rgba(0,0,0,.65));
+  pointer-events: none;
 }
-.press-rank::before {
-  content: ""; position: absolute; inset: -20%; z-index: -1;
-  background: var(--art) center / cover; filter: blur(22px) saturate(1.4) brightness(.6);
+.press-photo b {
+  position: absolute; left: 12px; bottom: 14px; z-index: 1;
+  font: italic 400 64px/0.8 "Instrument Serif", serif; letter-spacing: -0.04em;
+  text-shadow: 0 4px 24px rgba(0,0,0,.5);
 }
-.press-rank b { font: italic 400 104px/0.82 "Instrument Serif", serif; letter-spacing: -0.04em; }
-.press-rank small { font-size: 11px; font-weight: 800; letter-spacing: .2em; color: var(--ink-dim); margin-top: 8px; }
 .press-card img {
   width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; margin-bottom: 6px;
   box-shadow: 0 10px 26px rgba(0,0,0,.35);

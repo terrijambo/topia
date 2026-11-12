@@ -200,6 +200,92 @@ if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("nexttrack", () => playAt(qi + 1));
 }
 
+/* ---------- featured-on rail: auto-scrolls in a loop, still swipeable/draggable ---------- */
+(function pressRail() {
+  const rail = $("press-rail");
+  if (!rail || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  // A second copy of the cards lets the rail wrap around without a visible jump.
+  for (const card of [...rail.children]) {
+    const copy = card.cloneNode(true);
+    copy.setAttribute("aria-hidden", "true");
+    copy.tabIndex = -1;
+    rail.append(copy);
+  }
+  const loopWidth = () => rail.children[rail.children.length / 2].offsetLeft - rail.children[0].offsetLeft;
+
+  const SPEED = 32; // px per second
+  let pos = 0;
+  let last = 0;
+  let held = false; // pointer/focus on the rail
+  let resumeAt = 0;
+  let onScreen = true;
+
+  const wrap = () => {
+    const w = loopWidth();
+    if (pos >= w) pos -= w;
+    if (pos < 0) pos += w;
+  };
+
+  function tick(now) {
+    const dt = Math.min(0.05, (now - last) / 1000 || 0);
+    last = now;
+    if (onScreen && !held && now >= resumeAt) {
+      pos += SPEED * dt;
+      wrap();
+      rail.scrollLeft = pos;
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  const pause = (ms = 2500) => (resumeAt = performance.now() + ms);
+
+  // Manual scrolling (wheel, trackpad, touch) takes over; we just follow it and keep it looping.
+  rail.addEventListener("scroll", () => {
+    if (Math.abs(rail.scrollLeft - Math.round(pos)) < 2) return;
+    pos = rail.scrollLeft;
+    const before = pos;
+    wrap();
+    if (pos !== before) rail.scrollLeft = pos;
+    pause();
+  }, { passive: true });
+
+  rail.addEventListener("pointerenter", (e) => e.pointerType === "mouse" && (held = true));
+  rail.addEventListener("pointerleave", () => { held = false; pause(800); });
+  rail.addEventListener("touchstart", () => (held = true), { passive: true });
+  rail.addEventListener("touchend", () => { held = false; pause(); }, { passive: true });
+  rail.addEventListener("focusin", () => (held = true));
+  rail.addEventListener("focusout", () => (held = false));
+
+  // Click-and-drag for mouse users; a real drag shouldn't also open the card's link.
+  let dragX = null;
+  let dragged = false;
+  rail.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "mouse") return;
+    dragX = e.clientX;
+    dragged = false;
+  });
+  addEventListener("pointermove", (e) => {
+    if (dragX === null) return;
+    const dx = e.clientX - dragX;
+    if (!dragged && Math.abs(dx) < 4) return;
+    dragged = true;
+    rail.classList.add("dragging");
+    dragX = e.clientX;
+    pos -= dx;
+    wrap();
+    rail.scrollLeft = pos;
+  });
+  addEventListener("pointerup", () => {
+    dragX = null;
+    rail.classList.remove("dragging");
+  });
+  rail.addEventListener("click", (e) => dragged && (e.preventDefault(), (dragged = false)), true);
+
+  new IntersectionObserver(([entry]) => (onScreen = entry.isIntersecting)).observe(rail);
+})();
+
 /* ---------- discography ---------- */
 let releases = [];
 let allTracks = [];

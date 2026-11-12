@@ -200,6 +200,25 @@ if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("nexttrack", () => playAt(qi + 1));
 }
 
+/* ---------- outlet ticker ---------- */
+// The CSS animation slides the track by half its width, so the first half must
+// already cover the banner: repeat the names until it does, then double it.
+(function outletTicker() {
+  const track = $("outlets-track");
+  if (!track) return;
+  const set = track.innerHTML;
+  const fill = () => {
+    track.innerHTML = set;
+    const box = track.parentElement.clientWidth;
+    while (track.scrollWidth < box + 40) track.insertAdjacentHTML("beforeend", set);
+    track.insertAdjacentHTML("beforeend", track.innerHTML);
+    track.style.animationDuration = `${track.scrollWidth / 2 / 40}s`; // ~40px per second
+  };
+  fill();
+  document.fonts?.ready.then(fill);
+  addEventListener("resize", fill);
+})();
+
 /* ---------- featured-on rail: auto-scrolls in a loop, still swipeable/draggable ---------- */
 (function pressRail() {
   const rail = $("press-rail");
